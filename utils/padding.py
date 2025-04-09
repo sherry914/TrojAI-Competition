@@ -1,3 +1,9 @@
+# NIST-developed software is provided by NIST as a public service. You may use, copy and distribute copies of the software in any medium, provided that you keep intact this entire notice. You may improve, modify and create derivative works of the software or any portion of the software, and you may copy and distribute such modifications or works. Modified works should carry a notice stating that you changed the software and should note the date and nature of any such change. Please explicitly acknowledge the National Institute of Standards and Technology as the source of the software.
+
+# NIST-developed software is expressly provided "AS IS." NIST MAKES NO WARRANTY OF ANY KIND, EXPRESS, IMPLIED, IN FACT OR ARISING BY OPERATION OF LAW, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT AND DATA ACCURACY. NIST NEITHER REPRESENTS NOR WARRANTS THAT THE OPERATION OF THE SOFTWARE WILL BE UNINTERRUPTED OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NIST DOES NOT WARRANT OR MAKE ANY REPRESENTATIONS REGARDING THE USE OF THE SOFTWARE OR THE RESULTS THEREOF, INCLUDING BUT NOT LIMITED TO THE CORRECTNESS, ACCURACY, RELIABILITY, OR USEFULNESS OF THE SOFTWARE.
+
+# You are solely responsible for determining the appropriateness of using and distributing the software and you assume all risks associated with its use, including but not limited to the risks and costs of program errors, compliance with applicable laws, damage to or loss of data, programs or equipment, and the unavailability or interruption of operation. This software is not intended to be used in any situation where a failure could cause risk of injury or damage to property. The software developed by NIST employees is not subject to copyright protection within the United States.
+
 import numpy as np
 from utils.arrays import get_model_shape
 
@@ -41,26 +47,18 @@ def create_models_padding(model_repr_dict: dict) -> dict:
 
     return padding
 
-# 把测试model按照target_padding的长度补0，但是测试模型有可能比target padding维度长，可以选择截断测试model的长度到target长度，或者不padding
-# 不padding的话，去掉assert判断即可，但是会影响到feature reduction，因为降维的input需要统一维度
-# 考虑截断，看是否会影响detection performance
+
 def pad_to_target(input_array: np.array, target_padding: list, constant_value=0):
     try:
         padding_array = []
         assert len(target_padding) == len(input_array.shape)
-        # input array为二维数组，两维分别padding或截断
         for (idx, target) in enumerate(target_padding):
             current = input_array.shape[idx]
-            # assert target >= current
-            if target >= current:
+            assert target >= current
+            if target > current:
                 padding_array.append((0, target - current))
             else:
-                array_shape = list(input_array.shape)
-                array_shape[idx] = target
-                input_array = np.resize(input_array, tuple(array_shape)) # 截断
                 padding_array.append((0, 0))
-        # print(target_padding)
-        # print(input_array.shape)
     except AssertionError:
         raise Exception(
             f"Incorrect target padding: {input_array.shape} cannot be padded to "
