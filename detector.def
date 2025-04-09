@@ -1,0 +1,23 @@
+Bootstrap: docker
+From: python:3.8-bullseye
+
+%files
+    ./detector.py /
+    ./entrypoint.py /
+    ./utils /
+    ./metaparameters.json /
+    ./metaparameters_schema.json /
+    ./learned_parameters /
+    ./feature_selector.py /
+    ./parallel_compute_mi.py /
+
+%post
+    pip install auto-sklearn
+    pip install --upgrade pip
+    pip install torchvision jsonpickle jsonschema transformers evaluate datasets
+    pip install joblib
+    chmod 755 /*.py
+    chmod -R 755 /utils
+
+%runscript
+    exec python3 /entrypoint.py "$@"
