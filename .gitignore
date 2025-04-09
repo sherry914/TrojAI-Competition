@@ -1,3 +1,16 @@
-drebin/
-model/
-__pycache__/
+.idea
+output.txt
+test.txt
+features.csv
+model/id-00000000
+
+# Python
+__pychache__
+*.pyc
+*.simg
+*.sif
+*.log 
+*.out
+
+token.pickle
+.cache
