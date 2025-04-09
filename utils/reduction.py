@@ -1,10 +1,7 @@
 import importlib
-import logging
 
 import numpy as np
 from tqdm import tqdm
-
-from sklearn.exceptions import NotFittedError
 
 
 def feature_reduction(model, weight_table, max_features):
@@ -22,7 +19,7 @@ def feature_reduction(model, weight_table, max_features):
 
 
 def init_feature_reduction(output_feats):
-    fr_algo = "sklearn.decomposition.PCA"
+    fr_algo = "sklearn.decomposition.FastICA"
     fr_algo_mod = ".".join(fr_algo.split(".")[:-1])
     fr_algo_class = fr_algo.split(".")[-1]
     mod = importlib.import_module(fr_algo_mod)
@@ -45,9 +42,7 @@ def fit_feature_reduction_algorithm(model_dict, weight_table_params, input_featu
         for (layers, output) in tqdm(layers_output.items()):
             layer_transform[model_arch][layers] = init_feature_reduction(output)
             s = np.stack([model[layers] for model in models])
-            # print(s.shape)
-            if len(s) > 1:
-                layer_transform[model_arch][layers].fit(s)
+            layer_transform[model_arch][layers].fit(s)
 
     return layer_transform
 
@@ -56,12 +51,6 @@ def use_feature_reduction_algorithm(layer_transform, model):
     out_model = np.array([[]])
 
     for (layer, weights) in model.items():
-        try:
-            #print(weights.shape)
-            out_model = np.hstack((out_model, layer_transform[layer].transform([weights])))
-        except NotFittedError as e:
-            logging.info('Warning: {}, which might indicate not enough training data'.format(e))
+        out_model = np.hstack((out_model, layer_transform[layer].transform([weights])))
 
     return out_model
-
-# 降维学习笔记：一共降维成9维（在input_features里指定），drebin3分散在各个layer是2+1+1+5=9个feature，drebin4分散在各个layer是1+1+1+1+5=9个feature，比如说fc1从396800降维成1维或2维。fit是在训练降维模型的参数，transform是在执行降维，在fit中把模型结构训练为fc3的input feature是72360维，但实际上test input的fc3有80400维

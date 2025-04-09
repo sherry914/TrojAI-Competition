@@ -4,7 +4,7 @@ from collections import OrderedDict
 import numpy as np
 from tqdm import tqdm
 
-# 问题出在fc1无法在padding中修改，为500*991，应该为400*991
+
 def flatten_layer(model, layer_map):
     nbt_layer = None
     output = None

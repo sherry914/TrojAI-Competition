@@ -4,9 +4,6 @@ from os.path import join
 
 import torch
 from tqdm import tqdm
-import json
-import os
-from utils.drebinnn import DrebinNN
 
 
 def create_layer_map(model_repr_dict):
@@ -50,17 +47,10 @@ def load_model(model_filepath: str) -> (dict, str):
     Returns:
         model, dict, str - Torch model + dictionary representation of the model + model class name
     """
-
-    conf_filepath = os.path.join(os.path.dirname(model_filepath), 'reduced-config.json')
-    with open(conf_filepath, 'r') as f:
-        full_conf = json.load(f)
-
-    model = DrebinNN(991, full_conf)
-    model.load('.', model_filepath)
-    # model = torch.load(model_filepath)
-    model_class = model.model.__class__.__name__
+    model = torch.load(model_filepath)
+    model_class = model.__class__.__name__
     model_repr = OrderedDict(
-        {layer: tensor.cpu().numpy() for (layer, tensor) in model.model.state_dict().items()}
+        {layer: tensor.numpy() for (layer, tensor) in model.state_dict().items()}
     )
 
     return model, model_repr, model_class
@@ -85,6 +75,7 @@ def load_ground_truth(model_dirpath: str):
 def load_models_dirpath(models_dirpath):
     model_repr_dict = {}
     model_ground_truth_dict = {}
+    model_dirpath_dict = {}
 
     for model_path in tqdm(models_dirpath):
         model, model_repr, model_class = load_model(
@@ -96,8 +87,10 @@ def load_models_dirpath(models_dirpath):
         if model_class not in model_repr_dict.keys():
             model_repr_dict[model_class] = []
             model_ground_truth_dict[model_class] = []
+            model_dirpath_dict[model_class] = []
 
         model_repr_dict[model_class].append(model_repr)
         model_ground_truth_dict[model_class].append(model_ground_truth)
+        model_dirpath_dict[model_class].append(model_path)
 
-    return model_repr_dict, model_ground_truth_dict
+    return model_repr_dict, model_ground_truth_dict, model_dirpath_dict
