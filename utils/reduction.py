@@ -1,28 +1,62 @@
 import importlib
-import logging
 
 import numpy as np
 from tqdm import tqdm
 
-from sklearn.exceptions import NotFittedError
 
-
-def feature_reduction(model, weight_table, max_features):
+def feature_reduction(model, weight_table, max_features, max_features_layer):
     outputs = {}
-    tf = max_features / len(model)
+    n_bins = len(weight_table)
+    n_layers = len(model)
     sm = sum([l.shape[0] for l in model.values()])
+    tf = max_features / sm
+    bin_s = [(i+1)/n_bins*sm for i in range(n_bins)]
+    cu_i = 0
+    ac_s = 0
+    id_layer = 0
+    a = []
     for (layer, weights) in model.items():
-        wt_i = np.round(weights.shape[0] / sm * 100).astype(np.int32)
-        out_f = int(weight_table[wt_i] * tf)
-        if layer == list(model.keys())[-1]:
+        id_layer += 1
+        if id_layer == n_layers:
             out_f = max_features - sum(outputs.values())
-        assert out_f > 0
+        else:
+            out_f = 0
+            z = weights.shape[0]
+            while ac_s + z > bin_s[cu_i]:
+                dif = bin_s[cu_i]-ac_s
+                out_f += dif * weight_table[cu_i]
+                z -= dif
+                ac_s += dif
+                cu_i += 1
+            ac_s += z
+            out_f += z * weight_table[cu_i]
+            out_f = int(out_f * tf)
+        # assert out_f > 0
+        a.append(out_f)
         outputs[layer] = out_f
+
+    z = 0
+    order = np.argsort(a)
+    for i in order[::-1]:
+        if a[i] > max_features_layer:
+            z += a[i]-max_features_layer
+            a[i] = max_features_layer
+        else:
+            bon = min(z, max_features_layer-a[i])
+            a[i] += bon
+            z -= bon
+
+    i = 0
+    for (layer, weights) in model.items():
+        outputs[layer] = a[i]
+        i += 1
+
+
     return outputs
 
 
 def init_feature_reduction(output_feats):
-    fr_algo = "sklearn.decomposition.PCA"
+    fr_algo = "sklearn.decomposition.FastICA"
     fr_algo_mod = ".".join(fr_algo.split(".")[:-1])
     fr_algo_class = fr_algo.split(".")[-1]
     mod = importlib.import_module(fr_algo_mod)
@@ -35,19 +69,23 @@ def init_weight_table(random_seed, mean, std, scaler):
     return np.sort(rnd.normal(mean, std, 100)) * scaler
 
 
-def fit_feature_reduction_algorithm(model_dict, weight_table_params, input_features):
+def fit_feature_reduction_algorithm(model_dict, weight_table_params, input_features, max_features_layer=30):
     layer_transform = {}
     weight_table = init_weight_table(**weight_table_params)
+    weight_table *= len(weight_table)/np.sum(weight_table)
 
     for (model_arch, models) in model_dict.items():
-        layers_output = feature_reduction(models[0], weight_table, input_features)
+        print(model_arch)
+        layers_output = feature_reduction(models[0], weight_table, input_features, max_features_layer)
+
         layer_transform[model_arch] = {}
         for (layers, output) in tqdm(layers_output.items()):
-            layer_transform[model_arch][layers] = init_feature_reduction(output)
-            s = np.stack([model[layers] for model in models])
-            # print(s.shape)
-            if len(s) > 1:
+            if output > 0:
+                layer_transform[model_arch][layers] = init_feature_reduction(output)
+                s = np.stack([model[layers] for model in models])
                 layer_transform[model_arch][layers].fit(s)
+            else:
+                layer_transform[model_arch][layers] = None
 
     return layer_transform
 
@@ -56,12 +94,8 @@ def use_feature_reduction_algorithm(layer_transform, model):
     out_model = np.array([[]])
 
     for (layer, weights) in model.items():
-        try:
-            #print(weights.shape)
-            out_model = np.hstack((out_model, layer_transform[layer].transform([weights])))
-        except NotFittedError as e:
-            logging.info('Warning: {}, which might indicate not enough training data'.format(e))
+        if layer_transform[layer] is None:
+            continue
+        out_model = np.hstack((out_model, layer_transform[layer].transform([weights])))
 
     return out_model
-
-# 降维学习笔记：一共降维成9维（在input_features里指定），drebin3分散在各个layer是2+1+1+5=9个feature，drebin4分散在各个layer是1+1+1+1+5=9个feature，比如说fc1从396800降维成1维或2维。fit是在训练降维模型的参数，transform是在执行降维，在fit中把模型结构训练为fc3的input feature是72360维，但实际上test input的fc3有80400维

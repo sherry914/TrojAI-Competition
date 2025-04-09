@@ -41,26 +41,18 @@ def create_models_padding(model_repr_dict: dict) -> dict:
 
     return padding
 
-# 把测试model按照target_padding的长度补0，但是测试模型有可能比target padding维度长，可以选择截断测试model的长度到target长度，或者不padding
-# 不padding的话，去掉assert判断即可，但是会影响到feature reduction，因为降维的input需要统一维度
-# 考虑截断，看是否会影响detection performance
+
 def pad_to_target(input_array: np.array, target_padding: list, constant_value=0):
     try:
         padding_array = []
         assert len(target_padding) == len(input_array.shape)
-        # input array为二维数组，两维分别padding或截断
         for (idx, target) in enumerate(target_padding):
             current = input_array.shape[idx]
-            # assert target >= current
-            if target >= current:
+            assert target >= current
+            if target > current:
                 padding_array.append((0, target - current))
             else:
-                array_shape = list(input_array.shape)
-                array_shape[idx] = target
-                input_array = np.resize(input_array, tuple(array_shape)) # 截断
                 padding_array.append((0, 0))
-        # print(target_padding)
-        # print(input_array.shape)
     except AssertionError:
         raise Exception(
             f"Incorrect target padding: {input_array.shape} cannot be padded to "
